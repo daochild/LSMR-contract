@@ -1,51 +1,48 @@
 # Agent Guide for LSMR-contract
 
 ## Project Snapshot
-- Single-contract Hardhat project focused on LMSR pricing math for prediction-market style shares.
-- Core logic lives in `contracts/LMSR.sol`; there are currently no additional contracts, scripts, or tests.
-- Math primitives come from `abdk-libraries-solidity/ABDKMath64x64.sol` (fixed-point `int128` operations).
-- Tooling is minimal: Hardhat + `@nomicfoundation/hardhat-toolbox` with TypeScript config (`hardhat.config.ts`).
+- Single-contract Hardhat project for LMSR pricing math used in prediction-market style share calculations.
+- All business logic lives in `contracts/LMSR.sol`; there is no storage, deployment script, frontend, or second contract yet.
+- Fixed-point math depends on `abdk-libraries-solidity/ABDKMath64x64.sol`, so public results are mostly `int128` 64.64 values rather than plain integers.
+- Tooling is intentionally small: `hardhat`, `@nomicfoundation/hardhat-toolbox`, TypeScript config, and no custom plugins.
 
 ## Architecture and Data Flow
-- External callers invoke pure functions on `LMSR` to compute prices and trade costs; no storage/state mutation exists.
-- Public API is organized by market size:
-  - Pair: `calculatePrice(q1,q2[,b])`, `calculateTradeCost(...)`
-  - Triple: `calculatePriceTriple(uint128[] memory _qs)`, `calculateTradeCostTriple(...)`
-  - Batch/N outcomes: `calculatePriceBatch(...)`, `calculateTradeCostBatch(...)`
-- Constant `b` can be supplied directly or derived by helpers (`getArbitraryConstant*`).
-- Input validation uses custom error `InvalidInput(InputErrorReason)` with enum values:
-  - `ArrayTooShort`
-  - `ArraysLengthMismatch`
+- External callers use pure methods only: inputs are outstanding share counts, outputs are share prices or trade-cost deltas.
+- The current API is split by market shape:
+  - pair: `calculatePrice(q1, q2[, b])`, `calculateTradeCost(...)`
+  - triple: `calculatePriceTriple(uint128[] memory)`, `calculateTradeCostTriple(...)`
+  - batch/N-outcome: `calculatePriceBatch(...)`, `calculateTradeCostBatch(...)`
+- "Price" always means the first outcome (`q1` or `_qs[0]`); this first-outcome convention is important when reviewing interface changes.
+- `b` can be provided directly or derived by helper families: static (`getArbitraryConstant`), max-runner (`getArbitraryConstantLR*`), or average (`getArbitraryConstantAvg*`).
+- Input validation uses the custom error `InvalidInput(InputErrorReason)` with `ArrayTooShort` and `ArraysLengthMismatch`.
 
-## Project-Specific Coding Patterns
-- The contract uses overloaded function names heavily (same name, different signatures). Preserve signatures when extending APIs.
-- Batch/triple functions enforce minimum array lengths before math; follow this pattern for any new array-based method.
-- Existing trade-cost functions compute `cost_final - cost_initial` from price functions rather than separate formulas.
-- `calculatePriceBatch` currently uses ratios of `(q_i / b)` terms (not exponentials), unlike pair/triple methods; treat this as intentional current behavior unless explicitly changing semantics.
-- Helper methods are grouped by `b` strategy:
-  - static (`getArbitraryConstant`)
-  - largest-runner (`getArbitraryConstantLR*`)
-  - average (`getArbitraryConstantAvg*`)
+## Project-Specific Patterns
+- Preserve overloaded public signatures when extending the contract; existing integrations may rely on them.
+- New array-based business methods should validate lengths before delegating into pricing math, matching the pattern used in `calculatePriceTriple`, `calculatePriceBatch`, and the `getArbitraryConstant*Batch` helpers.
+- Existing trade-cost methods compute `cost_final - cost_initial` by calling price methods twice instead of using a separate closed-form cost equation.
+- `calculatePriceBatch` intentionally differs from pair/triple math today: it sums `(q_i / b)` ratios instead of exponentials. Treat that as current behavior unless the task explicitly changes pricing semantics.
+- There is a known interface inconsistency in `calculateTradeCostTriple`: it only checks for length `>= 2`, while `calculatePriceTriple` requires `>= 3`. Fix validation if you touch that path.
+
+## Current Interface Refactor Guidance
+- Prefer canonical methods that make the priced outcome explicit (for example, an `outcomeIndex`) instead of relying on the implicit first-outcome rule.
+- Keep existing `calculatePrice*` / `calculateTradeCost*` entry points as compatibility wrappers when adding clearer business-facing APIs.
+- If you introduce strategy selection for `b`, make the choice explicit in the interface rather than hiding it inside overload resolution.
+- When changing the API surface, add tests that prove old wrappers still match the new canonical implementation for the first outcome.
 
 ## Developer Workflows
-- Install dependencies from project root:
-  - `npm install`
-- Compile contract:
-  - `npm run build` (maps to `npx hardhat compile`)
-- Run test suite:
-  - `npm test` (maps to `npx hardhat test`)
-- Solidity version for compilation is pinned in `hardhat.config.ts` to `0.8.24` while `LMSR.sol` pragma is `^0.8.4`; keep new contracts compatible with compiler setting.
+- Install dependencies from the repo root with `npm install`.
+- Compile with `npm run build` (`npx hardhat compile`).
+- Run tests with `npm test` (`npx hardhat test`). Current baseline may report "No contracts to compile" and run only Solidity tests if no JS/TS tests exist.
+- `hardhat.config.ts` currently compiles with Solidity `0.8.20`, while `contracts/LMSR.sol` declares `pragma solidity ^0.8.4`; keep new contracts/features compatible with the configured compiler.
 
-## Integration and Dependency Notes
-- External dependency surface is intentionally small:
-  - Runtime Solidity math lib: `abdk-libraries-solidity`
-  - Dev stack: Hardhat toolbox only
-- No on-chain token/account integrations exist yet; current contract is a pure math engine suitable for off-chain simulation or as a base contract.
-- If adding scripts/tests, use Hardhat defaults (`test/`, `scripts/`) to match toolbox conventions not yet customized in this repo.
+## Integration Notes
+- Runtime dependency surface is only `abdk-libraries-solidity`; all other packages are dev tooling.
+- No token transfers, ownership, oracle reads, or market settlement flows exist yet; this repository is a pure math engine.
+- If you add tests or scripts, use Hardhat defaults (`test/`, `scripts/`) because the repo does not define custom paths.
 
-## Key Files to Read First
-- `contracts/LMSR.sol` - all domain logic, validation, and helper strategies.
-- `hardhat.config.ts` - compiler/toolchain baseline.
-- `package.json` - canonical build/test commands.
-- `README.md` - brief project intent (prediction market, LMSR).
+## Read First
+- `contracts/LMSR.sol` - all pricing logic, validation behavior, and `b` helper strategies.
+- `hardhat.config.ts` - compiler version and toolchain baseline.
+- `package.json` - authoritative build/test commands.
+- `README.md` - minimal project intent.
 

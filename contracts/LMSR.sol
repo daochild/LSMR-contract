@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: ISC
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.0;
 
 import {ABDKMath64x64} from "abdk-libraries-solidity/ABDKMath64x64.sol";
 
@@ -18,7 +18,42 @@ contract LMSR {
         ArraysLengthMismatch
     }
 
+    enum ArbitraryConstantStrategy {
+        Static,
+        LargestRunner,
+        Average
+    }
+
     error InvalidInput(InputErrorReason);
+    error InvalidOutcomeIndex();
+
+    function calculatePriceForOutcome(uint128[] memory _qs, uint256 outcomeIndex, uint128 b) public pure returns (int128 price) {
+        _validateOutcomeArray(_qs, 2, outcomeIndex);
+        price = _calculateExponentialPriceForOutcome(_qs, outcomeIndex, b);
+    }
+
+    function calculatePriceForOutcome(uint128[] memory _qs, uint256 outcomeIndex) public pure returns (int128 price) {
+        price = calculatePriceForOutcome(_qs, outcomeIndex, ArbitraryConstantStrategy.Average);
+    }
+
+    function calculatePriceForOutcome(uint128[] memory _qs, uint256 outcomeIndex, ArbitraryConstantStrategy strategy) public pure returns (int128 price) {
+        _validateOutcomeArray(_qs, 2, outcomeIndex);
+        price = _calculateExponentialPriceForOutcome(_qs, outcomeIndex, getArbitraryConstantByStrategy(_qs, strategy));
+    }
+
+    function calculatePriceBatchForOutcome(uint128[] memory _qs, uint256 outcomeIndex, uint128 b) public pure returns (int128 price) {
+        _validateOutcomeArray(_qs, 2, outcomeIndex);
+        price = _calculateRatioPriceForOutcome(_qs, outcomeIndex, b);
+    }
+
+    function calculatePriceBatchForOutcome(uint128[] memory _qs, uint256 outcomeIndex) public pure returns (int128 price) {
+        price = calculatePriceBatchForOutcome(_qs, outcomeIndex, ArbitraryConstantStrategy.Average);
+    }
+
+    function calculatePriceBatchForOutcome(uint128[] memory _qs, uint256 outcomeIndex, ArbitraryConstantStrategy strategy) public pure returns (int128 price) {
+        _validateOutcomeArray(_qs, 2, outcomeIndex);
+        price = _calculateRatioPriceForOutcome(_qs, outcomeIndex, getArbitraryConstantByStrategy(_qs, strategy));
+    }
 
     // Equation: price = e^(q1/b) / (e^(q1/b) + e^(q2/b))
     //
@@ -27,99 +62,95 @@ contract LMSR {
     // and q2 is the number of outstanding shares in the other stock. e - logarithm
     // Function to calculate the price based on q1, q2, and b
     function calculatePrice(uint128 q1, uint128 q2, uint128 b) public pure returns (int128 price) {
-        int128 e_q1_over_b = ABDKMath64x64.exp(ABDKMath64x64.div(int128(q1), int128(b)));
-        int128 e_q2_over_b = ABDKMath64x64.exp(ABDKMath64x64.div(int128(q2), int128(b)));
-
-        int128 denominator = ABDKMath64x64.add(e_q1_over_b, e_q2_over_b);
-        price = ABDKMath64x64.div(e_q1_over_b, denominator);
+        price = calculatePriceForOutcome(_pairToArray(q1, q2), 0, b);
     }
 
     function calculatePrice(uint128 q1, uint128 q2) public pure returns (int128 price) {
-        uint128 b = getArbitraryConstantAvg(q1, q2);
-        int128 e_q1_over_b = ABDKMath64x64.exp(ABDKMath64x64.div(int128(q1), int128(b)));
-        int128 e_q2_over_b = ABDKMath64x64.exp(ABDKMath64x64.div(int128(q2), int128(b)));
-
-        int128 denominator = ABDKMath64x64.add(e_q1_over_b, e_q2_over_b);
-        price = ABDKMath64x64.div(e_q1_over_b, denominator);
+        price = calculatePriceForOutcome(_pairToArray(q1, q2), 0, ArbitraryConstantStrategy.Average);
     }
 
     function calculatePriceTriple(uint128[] memory _qs) public pure returns (int128 price) {
-        if (_qs.length < 3) {
-            revert InvalidInput(InputErrorReason.ArrayTooShort);
-        }
-
-        int128 b = int128(getArbitraryConstantAvgBatch(_qs));
-        int128 e_q1_over_b = ABDKMath64x64.exp(ABDKMath64x64.div(int128(_qs[0]), b));
-        int128 e_q2_over_b = ABDKMath64x64.exp(ABDKMath64x64.div(int128(_qs[1]), b));
-        int128 e_q3_over_b = ABDKMath64x64.exp(ABDKMath64x64.div(int128(_qs[2]), b));
-
-        int128 denominator = ABDKMath64x64.add(e_q1_over_b, e_q2_over_b);
-        denominator = ABDKMath64x64.add(denominator, e_q3_over_b);
-        price = ABDKMath64x64.div(e_q1_over_b, denominator);
+        _validateOutcomeArray(_qs, 3, 0);
+        price = calculatePriceForOutcome(_qs, 0, ArbitraryConstantStrategy.Average);
     }
 
     // price of q1
     function calculatePriceBatch(uint128[] memory _qs) public pure returns (int128 price) {
-        if (_qs.length < 2) {
-            revert InvalidInput(InputErrorReason.ArrayTooShort);
-        }
+        price = calculatePriceBatchForOutcome(_qs, 0, ArbitraryConstantStrategy.Average);
+    }
 
-        int128 b = int128(getArbitraryConstantAvgBatch(_qs));
-        int128 denominator;
-        for (uint256 i; i < _qs.length; i++) {
-            denominator = ABDKMath64x64.add(denominator, ABDKMath64x64.div(int128(_qs[i]), b));
-        }
+    function calculateTradeCostForOutcome(uint128[] memory _q_initial, uint128[] memory _q_final, uint256 outcomeIndex, uint128 b) public pure returns (int128 cost) {
+        _validateTradeArrays(_q_initial, _q_final, 2, outcomeIndex);
 
-        price = ABDKMath64x64.div(ABDKMath64x64.div(int128(_qs[0]), b), denominator);
+        int128 costInitial = _calculateExponentialPriceForOutcome(_q_initial, outcomeIndex, b);
+        int128 costFinal = _calculateExponentialPriceForOutcome(_q_final, outcomeIndex, b);
+        cost = costFinal - costInitial;
+    }
+
+    function calculateTradeCostForOutcome(uint128[] memory _q_initial, uint128[] memory _q_final, uint256 outcomeIndex) public pure returns (int128 cost) {
+        cost = calculateTradeCostForOutcome(_q_initial, _q_final, outcomeIndex, ArbitraryConstantStrategy.Average);
+    }
+
+    function calculateTradeCostForOutcome(uint128[] memory _q_initial, uint128[] memory _q_final, uint256 outcomeIndex, ArbitraryConstantStrategy strategy) public pure returns (int128 cost) {
+        _validateTradeArrays(_q_initial, _q_final, 2, outcomeIndex);
+
+        uint128 initialB = getArbitraryConstantByStrategy(_q_initial, strategy);
+        uint128 finalB = getArbitraryConstantByStrategy(_q_final, strategy);
+        int128 costInitial = _calculateExponentialPriceForOutcome(_q_initial, outcomeIndex, initialB);
+        int128 costFinal = _calculateExponentialPriceForOutcome(_q_final, outcomeIndex, finalB);
+        cost = costFinal - costInitial;
+    }
+
+    function calculateTradeCostBatchForOutcome(uint128[] memory _q_initial, uint128[] memory _q_final, uint256 outcomeIndex, uint128 b) public pure returns (int128 cost) {
+        _validateTradeArrays(_q_initial, _q_final, 2, outcomeIndex);
+
+        int128 costInitial = _calculateRatioPriceForOutcome(_q_initial, outcomeIndex, b);
+        int128 costFinal = _calculateRatioPriceForOutcome(_q_final, outcomeIndex, b);
+        cost = costFinal - costInitial;
+    }
+
+    function calculateTradeCostBatchForOutcome(uint128[] memory _q_initial, uint128[] memory _q_final, uint256 outcomeIndex) public pure returns (int128 cost) {
+        cost = calculateTradeCostBatchForOutcome(_q_initial, _q_final, outcomeIndex, ArbitraryConstantStrategy.Average);
+    }
+
+    function calculateTradeCostBatchForOutcome(uint128[] memory _q_initial, uint128[] memory _q_final, uint256 outcomeIndex, ArbitraryConstantStrategy strategy) public pure returns (int128 cost) {
+        _validateTradeArrays(_q_initial, _q_final, 2, outcomeIndex);
+
+        uint128 initialB = getArbitraryConstantByStrategy(_q_initial, strategy);
+        uint128 finalB = getArbitraryConstantByStrategy(_q_final, strategy);
+        int128 costInitial = _calculateRatioPriceForOutcome(_q_initial, outcomeIndex, initialB);
+        int128 costFinal = _calculateRatioPriceForOutcome(_q_final, outcomeIndex, finalB);
+        cost = costFinal - costInitial;
     }
 
     // Function to calculate the cost of buying additional shares
     function calculateTradeCost(uint128 q1_initial, uint128 q2_initial, uint128 q1_final, uint128 q2_final, uint128 b) public pure returns (int128 cost) {
-        int128 cost_initial = calculatePrice(q1_initial, q2_initial, b);
-        int128 cost_final = calculatePrice(q1_final, q2_final, b);
-
-        cost = cost_final - cost_initial;
+        cost = calculateTradeCostForOutcome(_pairToArray(q1_initial, q2_initial), _pairToArray(q1_final, q2_final), 0, b);
     }
 
     function calculateTradeCost(uint128 q1_initial, uint128 q2_initial, uint128 q1_final, uint128 q2_final) public pure returns (int128 cost) {
-        uint128 b = getArbitraryConstantAvg(q1_initial, q2_initial);
-        int128 cost_initial = calculatePrice(q1_initial, q2_initial, b);
-        b = getArbitraryConstantAvg(q1_final, q2_final);
-        int128 cost_final = calculatePrice(q1_final, q2_final, b);
-
-        cost = cost_final - cost_initial;
+        cost = calculateTradeCostForOutcome(_pairToArray(q1_initial, q2_initial), _pairToArray(q1_final, q2_final), 0, ArbitraryConstantStrategy.Average);
     }
 
     function calculateTradeCostTriple(uint128[] memory _q_initial, uint128[] memory _q_final) public pure returns (int128 cost) {
-        if (_q_initial.length < 2 ) {
-            revert InvalidInput(InputErrorReason.ArrayTooShort);
-        }
-        if (_q_initial.length != _q_final.length) {
-            revert InvalidInput(InputErrorReason.ArraysLengthMismatch);
-        }
-
-        uint128 b = getArbitraryConstantAvgBatch(_q_initial);
-        int128 cost_initial = calculatePriceTriple(_q_initial);
-        b = getArbitraryConstantAvgBatch(_q_final);
-        int128 cost_final = calculatePriceTriple(_q_final);
-
-        cost = cost_final - cost_initial;
+        _validateTradeArrays(_q_initial, _q_final, 3, 0);
+        cost = calculateTradeCostForOutcome(_q_initial, _q_final, 0, ArbitraryConstantStrategy.Average);
     }
 
     function calculateTradeCostBatch(uint128[] memory _q_initial, uint128[] memory _q_final) public pure returns (int128 cost) {
-        if (_q_initial.length < 2 ) {
-            revert InvalidInput(InputErrorReason.ArrayTooShort);
-        }
-        if (_q_initial.length != _q_final.length) {
-            revert InvalidInput(InputErrorReason.ArraysLengthMismatch);
-        }
+        cost = calculateTradeCostBatchForOutcome(_q_initial, _q_final, 0, ArbitraryConstantStrategy.Average);
+    }
 
-        uint128 b = getArbitraryConstantAvgBatch(_q_initial);
-        int128 cost_initial = calculatePriceBatch(_q_initial);
-        b = getArbitraryConstantAvgBatch(_q_final);
-        int128 cost_final = calculatePriceBatch(_q_final);
+    function getArbitraryConstantByStrategy(uint128[] memory _qs, ArbitraryConstantStrategy strategy) public pure returns (uint128 b) {
+        _validateArrayLength(_qs.length, 2);
 
-        cost = cost_final - cost_initial;
+        if (strategy == ArbitraryConstantStrategy.Static) {
+            b = getArbitraryConstant();
+        } else if (strategy == ArbitraryConstantStrategy.LargestRunner) {
+            b = getArbitraryConstantLRBatch(_qs);
+        } else {
+            b = getArbitraryConstantAvgBatch(_qs);
+        }
     }
 
     // Static constant. Could throw an error not recommended for use.
@@ -129,7 +160,7 @@ contract LMSR {
 
     // Dynamic constant based on max value
     function getArbitraryConstantLR(uint128 q1, uint128 q2) public pure returns (uint128 b) {
-        b = q1 > q2 ? q1 : q2;
+        b = getArbitraryConstantLRBatch(_pairToArray(q1, q2));
     }
 
     function getArbitraryConstantLRBatch(uint128[] memory _qs) public pure returns (uint128 b) {
@@ -147,7 +178,7 @@ contract LMSR {
 
     // Dynamic constant based on average value
     function getArbitraryConstantAvg(uint128 q1, uint128 q2) public pure returns (uint128 b) {
-        b = (q1 + q2) / 2;
+        b = getArbitraryConstantAvgBatch(_pairToArray(q1, q2));
     }
 
     function getArbitraryConstantAvgBatch(uint128[] memory _qs) public pure returns (uint128 b) {
@@ -160,5 +191,68 @@ contract LMSR {
         }
 
         b /= uint128(_qs.length);
+    }
+
+    function _calculateExponentialPriceForOutcome(uint128[] memory _qs, uint256 outcomeIndex, uint128 b) internal pure returns (int128 price) {
+        int128 denominator;
+        int128 numerator;
+        int128 b64 = int128(b);
+
+        for (uint256 i; i < _qs.length; i++) {
+            int128 term = ABDKMath64x64.exp(ABDKMath64x64.div(int128(_qs[i]), b64));
+            denominator = ABDKMath64x64.add(denominator, term);
+
+            if (i == outcomeIndex) {
+                numerator = term;
+            }
+        }
+
+        price = ABDKMath64x64.div(numerator, denominator);
+    }
+
+    function _calculateRatioPriceForOutcome(uint128[] memory _qs, uint256 outcomeIndex, uint128 b) internal pure returns (int128 price) {
+        int128 denominator;
+        int128 b64 = int128(b);
+
+        for (uint256 i; i < _qs.length; i++) {
+            denominator = ABDKMath64x64.add(denominator, ABDKMath64x64.div(int128(_qs[i]), b64));
+        }
+
+        price = ABDKMath64x64.div(ABDKMath64x64.div(int128(_qs[outcomeIndex]), b64), denominator);
+    }
+
+    function _validateTradeArrays(uint256 initialLength, uint256 finalLength, uint256 minLength) internal pure {
+        _validateArrayLength(initialLength, minLength);
+        if (initialLength != finalLength) {
+            revert InvalidInput(InputErrorReason.ArraysLengthMismatch);
+        }
+    }
+
+    function _validateTradeArrays(uint128[] memory _q_initial, uint128[] memory _q_final, uint256 minLength, uint256 outcomeIndex) internal pure {
+        _validateTradeArrays(_q_initial.length, _q_final.length, minLength);
+        _validateOutcomeIndex(_q_initial.length, outcomeIndex);
+    }
+
+    function _validateOutcomeArray(uint128[] memory _qs, uint256 minLength, uint256 outcomeIndex) internal pure {
+        _validateArrayLength(_qs.length, minLength);
+        _validateOutcomeIndex(_qs.length, outcomeIndex);
+    }
+
+    function _validateArrayLength(uint256 length, uint256 minLength) internal pure {
+        if (length < minLength) {
+            revert InvalidInput(InputErrorReason.ArrayTooShort);
+        }
+    }
+
+    function _validateOutcomeIndex(uint256 length, uint256 outcomeIndex) internal pure {
+        if (outcomeIndex >= length) {
+            revert InvalidOutcomeIndex();
+        }
+    }
+
+    function _pairToArray(uint128 q1, uint128 q2) internal pure returns (uint128[] memory qs) {
+        qs = new uint128[](2);
+        qs[0] = q1;
+        qs[1] = q2;
     }
 }
