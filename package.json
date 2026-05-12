@@ -1,12 +1,14 @@
 {
   "name": "hardhat-project",
+  "type": "module",
   "scripts": {
     "build": "npx hardhat compile",
     "test": "npx hardhat test"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
-    "hardhat": "^2.22.3"
+    "@nomicfoundation/hardhat-toolbox": "^7.0.0",
+    "@nomicfoundation/hardhat-toolbox-mocha-ethers": "^3.0.5",
+    "hardhat": "^3.4.5"
   },
   "dependencies": {
     "abdk-libraries-solidity": "^3.2.0"
