@@ -33,12 +33,18 @@ contract LMSR {
     }
 
     function calculatePriceForOutcome(uint128[] memory _qs, uint256 outcomeIndex) public pure returns (int128 price) {
-        price = calculatePriceForOutcome(_qs, outcomeIndex, ArbitraryConstantStrategy.Average);
+        _validateOutcomeArray(_qs, 2, outcomeIndex);
+        price = _calculateExponentialPriceForOutcome(_qs, outcomeIndex, getArbitraryConstantAvgBatch(_qs));
     }
 
     function calculatePriceForOutcome(uint128[] memory _qs, uint256 outcomeIndex, ArbitraryConstantStrategy strategy) public pure returns (int128 price) {
         _validateOutcomeArray(_qs, 2, outcomeIndex);
-        price = _calculateExponentialPriceForOutcome(_qs, outcomeIndex, getArbitraryConstantByStrategy(_qs, strategy));
+        uint128 b = strategy == ArbitraryConstantStrategy.Static
+            ? getArbitraryConstant()
+            : (strategy == ArbitraryConstantStrategy.LargestRunner
+                ? getArbitraryConstantLRBatch(_qs)
+                : getArbitraryConstantAvgBatch(_qs));
+        price = _calculateExponentialPriceForOutcome(_qs, outcomeIndex, b);
     }
 
     function calculatePriceBatchForOutcome(uint128[] memory _qs, uint256 outcomeIndex, uint128 b) public pure returns (int128 price) {
@@ -47,12 +53,18 @@ contract LMSR {
     }
 
     function calculatePriceBatchForOutcome(uint128[] memory _qs, uint256 outcomeIndex) public pure returns (int128 price) {
-        price = calculatePriceBatchForOutcome(_qs, outcomeIndex, ArbitraryConstantStrategy.Average);
+        _validateOutcomeArray(_qs, 2, outcomeIndex);
+        price = _calculateRatioPriceForOutcome(_qs, outcomeIndex, getArbitraryConstantAvgBatch(_qs));
     }
 
     function calculatePriceBatchForOutcome(uint128[] memory _qs, uint256 outcomeIndex, ArbitraryConstantStrategy strategy) public pure returns (int128 price) {
         _validateOutcomeArray(_qs, 2, outcomeIndex);
-        price = _calculateRatioPriceForOutcome(_qs, outcomeIndex, getArbitraryConstantByStrategy(_qs, strategy));
+        uint128 b = strategy == ArbitraryConstantStrategy.Static
+            ? getArbitraryConstant()
+            : (strategy == ArbitraryConstantStrategy.LargestRunner
+                ? getArbitraryConstantLRBatch(_qs)
+                : getArbitraryConstantAvgBatch(_qs));
+        price = _calculateRatioPriceForOutcome(_qs, outcomeIndex, b);
     }
 
     // Equation: price = e^(q1/b) / (e^(q1/b) + e^(q2/b))
@@ -88,14 +100,25 @@ contract LMSR {
     }
 
     function calculateTradeCostForOutcome(uint128[] memory _q_initial, uint128[] memory _q_final, uint256 outcomeIndex) public pure returns (int128 cost) {
-        cost = calculateTradeCostForOutcome(_q_initial, _q_final, outcomeIndex, ArbitraryConstantStrategy.Average);
+        _validateTradeArrays(_q_initial, _q_final, 2, outcomeIndex);
+        int128 costInitial = _calculateExponentialPriceForOutcome(_q_initial, outcomeIndex, getArbitraryConstantAvgBatch(_q_initial));
+        int128 costFinal = _calculateExponentialPriceForOutcome(_q_final, outcomeIndex, getArbitraryConstantAvgBatch(_q_final));
+        cost = costFinal - costInitial;
     }
 
     function calculateTradeCostForOutcome(uint128[] memory _q_initial, uint128[] memory _q_final, uint256 outcomeIndex, ArbitraryConstantStrategy strategy) public pure returns (int128 cost) {
         _validateTradeArrays(_q_initial, _q_final, 2, outcomeIndex);
 
-        uint128 initialB = getArbitraryConstantByStrategy(_q_initial, strategy);
-        uint128 finalB = getArbitraryConstantByStrategy(_q_final, strategy);
+        uint128 initialB = strategy == ArbitraryConstantStrategy.Static
+            ? getArbitraryConstant()
+            : (strategy == ArbitraryConstantStrategy.LargestRunner
+                ? getArbitraryConstantLRBatch(_q_initial)
+                : getArbitraryConstantAvgBatch(_q_initial));
+        uint128 finalB = strategy == ArbitraryConstantStrategy.Static
+            ? getArbitraryConstant()
+            : (strategy == ArbitraryConstantStrategy.LargestRunner
+                ? getArbitraryConstantLRBatch(_q_final)
+                : getArbitraryConstantAvgBatch(_q_final));
         int128 costInitial = _calculateExponentialPriceForOutcome(_q_initial, outcomeIndex, initialB);
         int128 costFinal = _calculateExponentialPriceForOutcome(_q_final, outcomeIndex, finalB);
         cost = costFinal - costInitial;
@@ -110,14 +133,25 @@ contract LMSR {
     }
 
     function calculateTradeCostBatchForOutcome(uint128[] memory _q_initial, uint128[] memory _q_final, uint256 outcomeIndex) public pure returns (int128 cost) {
-        cost = calculateTradeCostBatchForOutcome(_q_initial, _q_final, outcomeIndex, ArbitraryConstantStrategy.Average);
+        _validateTradeArrays(_q_initial, _q_final, 2, outcomeIndex);
+        int128 costInitial = _calculateRatioPriceForOutcome(_q_initial, outcomeIndex, getArbitraryConstantAvgBatch(_q_initial));
+        int128 costFinal = _calculateRatioPriceForOutcome(_q_final, outcomeIndex, getArbitraryConstantAvgBatch(_q_final));
+        cost = costFinal - costInitial;
     }
 
     function calculateTradeCostBatchForOutcome(uint128[] memory _q_initial, uint128[] memory _q_final, uint256 outcomeIndex, ArbitraryConstantStrategy strategy) public pure returns (int128 cost) {
         _validateTradeArrays(_q_initial, _q_final, 2, outcomeIndex);
 
-        uint128 initialB = getArbitraryConstantByStrategy(_q_initial, strategy);
-        uint128 finalB = getArbitraryConstantByStrategy(_q_final, strategy);
+        uint128 initialB = strategy == ArbitraryConstantStrategy.Static
+            ? getArbitraryConstant()
+            : (strategy == ArbitraryConstantStrategy.LargestRunner
+                ? getArbitraryConstantLRBatch(_q_initial)
+                : getArbitraryConstantAvgBatch(_q_initial));
+        uint128 finalB = strategy == ArbitraryConstantStrategy.Static
+            ? getArbitraryConstant()
+            : (strategy == ArbitraryConstantStrategy.LargestRunner
+                ? getArbitraryConstantLRBatch(_q_final)
+                : getArbitraryConstantAvgBatch(_q_final));
         int128 costInitial = _calculateRatioPriceForOutcome(_q_initial, outcomeIndex, initialB);
         int128 costFinal = _calculateRatioPriceForOutcome(_q_final, outcomeIndex, finalB);
         cost = costFinal - costInitial;
@@ -169,9 +203,11 @@ contract LMSR {
         }
 
         b = _qs[0];
-        for (uint i = 1; i < _qs.length; i++) {
-            if (_qs[i] > b) {
-                b = _qs[i];
+        unchecked {
+            for (uint i = 1; i < _qs.length; i++) {
+                if (_qs[i] > b) {
+                    b = _qs[i];
+                }
             }
         }
     }
@@ -186,11 +222,12 @@ contract LMSR {
             revert InvalidInput(InputErrorReason.ArrayTooShort);
         }
 
-        for (uint i; i < _qs.length; i++) {
-            b += _qs[i];
+        unchecked {
+            for (uint i = 0; i < _qs.length; i++) {
+                b += _qs[i];
+            }
+            b /= uint128(_qs.length);
         }
-
-        b /= uint128(_qs.length);
     }
 
     function _calculateExponentialPriceForOutcome(uint128[] memory _qs, uint256 outcomeIndex, uint128 b) internal pure returns (int128 price) {
@@ -198,12 +235,14 @@ contract LMSR {
         int128 numerator;
         int128 b64 = int128(b);
 
-        for (uint256 i; i < _qs.length; i++) {
-            int128 term = ABDKMath64x64.exp(ABDKMath64x64.div(int128(_qs[i]), b64));
-            denominator = ABDKMath64x64.add(denominator, term);
+        unchecked {
+            for (uint256 i = 0; i < _qs.length; i++) {
+                int128 term = ABDKMath64x64.exp(ABDKMath64x64.div(int128(_qs[i]), b64));
+                denominator = ABDKMath64x64.add(denominator, term);
 
-            if (i == outcomeIndex) {
-                numerator = term;
+                if (i == outcomeIndex) {
+                    numerator = term;
+                }
             }
         }
 
@@ -214,8 +253,10 @@ contract LMSR {
         int128 denominator;
         int128 b64 = int128(b);
 
-        for (uint256 i; i < _qs.length; i++) {
-            denominator = ABDKMath64x64.add(denominator, ABDKMath64x64.div(int128(_qs[i]), b64));
+        unchecked {
+            for (uint256 i = 0; i < _qs.length; i++) {
+                denominator = ABDKMath64x64.add(denominator, ABDKMath64x64.div(int128(_qs[i]), b64));
+            }
         }
 
         price = ABDKMath64x64.div(ABDKMath64x64.div(int128(_qs[outcomeIndex]), b64), denominator);
