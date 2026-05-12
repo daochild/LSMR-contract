@@ -1,6 +1,11 @@
 {
   "name": "hardhat-project",
   "type": "module",
+  "author": {
+    "name": "Pavlo Bolhar",
+    "email": "pavlo.bolhar@proton.me",
+    "url": "https://github.com/daochild"
+  },
   "scripts": {
     "build": "npx hardhat compile",
     "test": "npx hardhat test"
