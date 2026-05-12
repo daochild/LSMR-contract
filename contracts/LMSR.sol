@@ -8,7 +8,7 @@ import {ABDKMath64x64} from "abdk-libraries-solidity/ABDKMath64x64.sol";
  * @dev LMSR contract to calculate the price of a share based on the number of outstanding shares
  * @notice price calculated only for q1 or _qs[0]
  *
- * @author Pavlo Bolhar <paul.bolhar@gmail.com>
+ * @author Pavlo Bolhar - pavlo.bolhar@proton.me
  */
 contract LMSR {
     using ABDKMath64x64 for int128;
