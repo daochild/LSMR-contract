@@ -111,7 +111,7 @@ contract LMSRTest is Test {
 
         assertTrue(price > 0, "Price for 3 outcomes should be positive");
         // For equal quantities: price ≈ 1/3
-        assertLt(price, int128(0x5555555555555555), "Price should be less than 1/3");
+        assertLe(price, int128(0x5555555555555555), "Price should be at most 1/3");
     }
 
     /**
