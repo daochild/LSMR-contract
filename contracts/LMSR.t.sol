@@ -428,6 +428,132 @@ contract LMSRTest is Test {
         assertTrue(price > 0, "Triple wrapper should work");
     }
 
+    // ========== calculatePriceN / calculateTradeCostN TESTS ==========
+
+    /**
+     * @dev calculatePriceN with 2 outcomes should match calculatePrice (Average b)
+     */
+    function test_calculatePriceN_binary_matches_calculatePrice() public view {
+        uint128[] memory qs = new uint128[](2);
+        qs[0] = Q_UNIT;
+        qs[1] = 2 * Q_UNIT;
+
+        int128 priceN       = lmsr.calculatePriceN(qs);
+        int128 priceLegacy  = lmsr.calculatePrice(qs[0], qs[1]);
+
+        assertEq(priceN, priceLegacy, "calculatePriceN with 2 outcomes must equal calculatePrice");
+    }
+
+    /**
+     * @dev calculatePriceN with 3 outcomes should match calculatePriceTriple
+     */
+    function test_calculatePriceN_triple_matches_calculatePriceTriple() public view {
+        uint128[] memory qs = new uint128[](3);
+        qs[0] = Q_UNIT;
+        qs[1] = 2 * Q_UNIT;
+        qs[2] = 3 * Q_UNIT;
+
+        int128 priceN      = lmsr.calculatePriceN(qs);
+        int128 priceTriple = lmsr.calculatePriceTriple(qs);
+
+        assertEq(priceN, priceTriple, "calculatePriceN with 3 outcomes must equal calculatePriceTriple");
+    }
+
+    /**
+     * @dev calculatePriceN works for 4, 5, 6 outcomes
+     */
+    function test_calculatePriceN_four_outcomes() public view {
+        uint128[] memory qs = new uint128[](4);
+        qs[0] = Q_UNIT;
+        qs[1] = 2 * Q_UNIT;
+        qs[2] = 3 * Q_UNIT;
+        qs[3] = 4 * Q_UNIT;
+
+        int128 price = lmsr.calculatePriceN(qs);
+        assertTrue(price > 0, "4-outcome price should be positive");
+    }
+
+    function test_calculatePriceN_five_outcomes() public view {
+        uint128[] memory qs = new uint128[](5);
+        for (uint i = 0; i < 5; i++) qs[i] = Q_UNIT;
+
+        int128 price = lmsr.calculatePriceN(qs);
+        assertTrue(price > 0, "5-outcome price should be positive");
+        // Roughly 1/5 for equal quantities
+        assertLt(price, int128(0x3333333333333334), "5-equal-outcome price should be < 1/3");
+    }
+
+    function test_calculatePriceN_ten_outcomes() public view {
+        uint128[] memory qs = new uint128[](10);
+        for (uint i = 0; i < 10; i++) qs[i] = Q_UNIT;
+
+        int128 price = lmsr.calculatePriceN(qs);
+        assertTrue(price > 0, "10-outcome price should be positive");
+    }
+
+    /**
+     * @dev calculateTradeCostN with 2 outcomes should match calculateTradeCost (Average b)
+     */
+    function test_calculateTradeCostN_binary_matches_calculateTradeCost() public view {
+        uint128[] memory qi = new uint128[](2);
+        qi[0] = Q_UNIT;
+        qi[1] = Q_UNIT;
+
+        uint128[] memory qf = new uint128[](2);
+        qf[0] = 2 * Q_UNIT;
+        qf[1] = Q_UNIT;
+
+        int128 costN      = lmsr.calculateTradeCostN(qi, qf);
+        int128 costLegacy = lmsr.calculateTradeCost(qi[0], qi[1], qf[0], qf[1]);
+
+        assertEq(costN, costLegacy, "calculateTradeCostN with 2 outcomes must equal calculateTradeCost");
+    }
+
+    /**
+     * @dev calculateTradeCostN with 3 outcomes matches calculateTradeCostTriple
+     */
+    function test_calculateTradeCostN_triple_matches_triple() public view {
+        uint128[] memory qi = new uint128[](3);
+        qi[0] = Q_UNIT;
+        qi[1] = Q_UNIT;
+        qi[2] = Q_UNIT;
+
+        uint128[] memory qf = new uint128[](3);
+        qf[0] = 2 * Q_UNIT;
+        qf[1] = Q_UNIT;
+        qf[2] = Q_UNIT;
+
+        int128 costN      = lmsr.calculateTradeCostN(qi, qf);
+        int128 costTriple = lmsr.calculateTradeCostTriple(qi, qf);
+
+        assertEq(costN, costTriple, "calculateTradeCostN with 3 outcomes must equal calculateTradeCostTriple");
+    }
+
+    /**
+     * @dev calculateTradeCostN works for 4+ outcomes
+     */
+    function test_calculateTradeCostN_four_outcomes() public view {
+        uint128[] memory qi = new uint128[](4);
+        for (uint i = 0; i < 4; i++) qi[i] = Q_UNIT;
+
+        uint128[] memory qf = new uint128[](4);
+        qf[0] = 2 * Q_UNIT;
+        for (uint i = 1; i < 4; i++) qf[i] = Q_UNIT;
+
+        int128 cost = lmsr.calculateTradeCostN(qi, qf);
+        assertTrue(cost > 0, "Trade cost should be positive when buying shares");
+    }
+
+    function test_calculateTradeCostN_mismatched_lengths_reverts() public {
+        uint128[] memory qi = new uint128[](3);
+        uint128[] memory qf = new uint128[](4);
+        for (uint i = 0; i < 3; i++) qi[i] = Q_UNIT;
+        for (uint i = 0; i < 4; i++) qf[i] = Q_UNIT;
+
+        vm.expectRevert();
+        lmsr.calculateTradeCostN(qi, qf);
+    }
+
     // ========== GAS BENCHMARKING TESTS ==========
     // Note: These tests help identify gas usage patterns
     // Run with: npm test -- --reporter json > gas-report.json

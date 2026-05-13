@@ -136,5 +136,94 @@ describe("LMSR", function () {
       .to.be.revertedWithCustomError(lmsr, "InvalidInput")
       .withArgs(0);
   });
-});
 
+  // ========== calculatePriceN tests ==========
+
+  it("calculatePriceN matches calculatePrice for 2 outcomes", async function () {
+    const lmsr = await deployLMSR();
+    const qs = [10n, 20n];
+
+    const priceN      = await lmsr.calculatePriceN(qs);
+    const priceLegacy = await lmsr["calculatePrice(uint128,uint128)"](qs[0], qs[1]);
+
+    expect(priceN).to.equal(priceLegacy);
+  });
+
+  it("calculatePriceN matches calculatePriceTriple for 3 outcomes", async function () {
+    const lmsr = await deployLMSR();
+    const qs = [10n, 20n, 30n];
+
+    const priceN      = await lmsr.calculatePriceN(qs);
+    const priceTriple = await lmsr.calculatePriceTriple(qs);
+
+    expect(priceN).to.equal(priceTriple);
+  });
+
+  it("calculatePriceN works for 4 and 5 outcomes", async function () {
+    const lmsr = await deployLMSR();
+    const qs4 = [10n, 20n, 30n, 40n];
+    const qs5 = [10n, 20n, 30n, 40n, 50n];
+
+    const price4 = await lmsr.calculatePriceN(qs4);
+    const price5 = await lmsr.calculatePriceN(qs5);
+
+    expect(price4).to.be.gt(0n);
+    expect(price5).to.be.gt(0n);
+    // More outcomes with higher total shares → lower price for outcome 0
+    expect(price5).to.be.lt(price4);
+  });
+
+  it("calculatePriceN rejects arrays shorter than 2", async function () {
+    const lmsr = await deployLMSR();
+
+    await expect(lmsr.calculatePriceN([10n]))
+      .to.be.revertedWithCustomError(lmsr, "InvalidInput")
+      .withArgs(0); // ArrayTooShort
+  });
+
+  // ========== calculateTradeCostN tests ==========
+
+  it("calculateTradeCostN matches calculateTradeCost for 2 outcomes", async function () {
+    const lmsr = await deployLMSR();
+    const qi = [10n, 20n];
+    const qf = [15n, 18n];
+
+    const costN      = await lmsr.calculateTradeCostN(qi, qf);
+    const costLegacy = await lmsr["calculateTradeCost(uint128,uint128,uint128,uint128)"](
+      qi[0], qi[1], qf[0], qf[1]
+    );
+
+    expect(costN).to.equal(costLegacy);
+  });
+
+  it("calculateTradeCostN matches calculateTradeCostTriple for 3 outcomes", async function () {
+    const lmsr = await deployLMSR();
+    const qi = [10n, 20n, 30n];
+    const qf = [15n, 18n, 28n];
+
+    const costN      = await lmsr.calculateTradeCostN(qi, qf);
+    const costTriple = await lmsr.calculateTradeCostTriple(qi, qf);
+
+    expect(costN).to.equal(costTriple);
+  });
+
+  it("calculateTradeCostN works for 4, 5, 10 outcomes", async function () {
+    const lmsr = await deployLMSR();
+
+    // Buy shares only in outcome 0 — price changes asymmetrically so cost ≠ 0
+    for (const n of [4, 5, 10]) {
+      const qi = Array.from({length: n}, (_, i) => BigInt(i + 1) * 10n);
+      const qf = qi.map((v, i) => i === 0 ? v + 100n : v); // only outcome 0 changes
+      const cost = await lmsr.calculateTradeCostN(qi, qf);
+      expect(cost).to.not.equal(0n, `N=${n} trade cost should be non-zero`);
+    }
+  });
+
+  it("calculateTradeCostN rejects mismatched array lengths", async function () {
+    const lmsr = await deployLMSR();
+
+    await expect(lmsr.calculateTradeCostN([10n, 20n, 30n], [10n, 20n]))
+      .to.be.revertedWithCustomError(lmsr, "InvalidInput")
+      .withArgs(1); // ArraysLengthMismatch
+  });
+});

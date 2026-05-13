@@ -86,6 +86,17 @@ contract LMSR {
         price = calculatePriceForOutcome(_qs, 0, ArbitraryConstantStrategy.Average);
     }
 
+    /**
+     * @notice Calculate LMSR exponential price for any N≥2 outcomes (outcome 0, Average strategy)
+     * @dev Generalisation of calculatePrice/calculatePriceTriple for arbitrary market sizes.
+     *      Use calculatePriceForOutcome when you need a specific outcome index or strategy.
+     * @param _qs Array of outstanding share quantities (length ≥ 2)
+     * @return price Share price for outcome 0 as fixed-point 64.64 int128
+     */
+    function calculatePriceN(uint128[] memory _qs) public pure returns (int128 price) {
+        price = calculatePriceForOutcome(_qs, 0, ArbitraryConstantStrategy.Average);
+    }
+
     // price of q1
     function calculatePriceBatch(uint128[] memory _qs) public pure returns (int128 price) {
         price = calculatePriceBatchForOutcome(_qs, 0, ArbitraryConstantStrategy.Average);
@@ -168,6 +179,18 @@ contract LMSR {
 
     function calculateTradeCostTriple(uint128[] memory _q_initial, uint128[] memory _q_final) public pure returns (int128 cost) {
         _validateTradeArrays(_q_initial, _q_final, 3, 0);
+        cost = calculateTradeCostForOutcome(_q_initial, _q_final, 0, ArbitraryConstantStrategy.Average);
+    }
+
+    /**
+     * @notice Calculate trade cost for any N≥2 outcomes (outcome 0, Average strategy)
+     * @dev Generalisation of calculateTradeCost/calculateTradeCostTriple for arbitrary market sizes.
+     *      Use calculateTradeCostForOutcome when you need a specific outcome index or strategy.
+     * @param _q_initial Array of initial share quantities (length ≥ 2)
+     * @param _q_final   Array of final share quantities (same length as _q_initial)
+     * @return cost Price delta (final − initial) for outcome 0 as fixed-point 64.64 int128
+     */
+    function calculateTradeCostN(uint128[] memory _q_initial, uint128[] memory _q_final) public pure returns (int128 cost) {
         cost = calculateTradeCostForOutcome(_q_initial, _q_final, 0, ArbitraryConstantStrategy.Average);
     }
 

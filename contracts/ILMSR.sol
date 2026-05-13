@@ -249,6 +249,16 @@ interface ILMSR {
     function calculatePriceTriple(uint128[] memory _qs) external pure returns (int128 price);
 
     /**
+     * @notice Calculate exponential LMSR price for any N≥2 outcomes (outcome 0, Average strategy)
+     * @dev General replacement for the shape-specific calculatePrice / calculatePriceTriple wrappers.
+     *      Identical pricing model to calculatePriceForOutcome but with outcomeIndex=0 and
+     *      ArbitraryConstantStrategy.Average fixed for convenience.
+     * @param _qs Array of outstanding share quantities (length ≥ 2)
+     * @return price Share price for outcome 0 as fixed-point 64.64 int128
+     */
+    function calculatePriceN(uint128[] memory _qs) external pure returns (int128 price);
+
+    /**
      * @notice Legacy: Calculate price for any N-outcome market (outcome index = 0)
      * @param _qs Array of share quantities for all outcomes
      * @return price Share price for first outcome using ratio (batch) formula
@@ -300,6 +310,19 @@ interface ILMSR {
      * @return cost Cost delta for outcome 0
      */
     function calculateTradeCostTriple(uint128[] memory _q_initial, uint128[] memory _q_final)
+        external
+        pure
+        returns (int128 cost);
+
+    /**
+     * @notice Calculate trade cost for any N≥2 outcomes (outcome 0, Average strategy)
+     * @dev General replacement for calculateTradeCost / calculateTradeCostTriple.
+     *      Uses exponential pricing; both arrays must have the same length ≥ 2.
+     * @param _q_initial Array of initial share quantities (length ≥ 2)
+     * @param _q_final   Array of final share quantities (same length as _q_initial)
+     * @return cost Price delta (final − initial) for outcome 0 as fixed-point 64.64 int128
+     */
+    function calculateTradeCostN(uint128[] memory _q_initial, uint128[] memory _q_final)
         external
         pure
         returns (int128 cost);
