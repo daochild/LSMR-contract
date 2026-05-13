@@ -81,10 +81,6 @@ contract LMSR {
         price = calculatePriceForOutcome(_pairToArray(q1, q2), 0, ArbitraryConstantStrategy.Average);
     }
 
-    function calculatePriceTriple(uint128[] memory _qs) public pure returns (int128 price) {
-        _validateOutcomeArray(_qs, 3, 0);
-        price = calculatePriceForOutcome(_qs, 0, ArbitraryConstantStrategy.Average);
-    }
 
     /**
      * @notice Calculate LMSR exponential price for any N≥2 outcomes (outcome 0, Average strategy)
@@ -177,15 +173,10 @@ contract LMSR {
         cost = calculateTradeCostForOutcome(_pairToArray(q1_initial, q2_initial), _pairToArray(q1_final, q2_final), 0, ArbitraryConstantStrategy.Average);
     }
 
-    function calculateTradeCostTriple(uint128[] memory _q_initial, uint128[] memory _q_final) public pure returns (int128 cost) {
-        _validateTradeArrays(_q_initial, _q_final, 3, 0);
-        cost = calculateTradeCostForOutcome(_q_initial, _q_final, 0, ArbitraryConstantStrategy.Average);
-    }
 
     /**
      * @notice Calculate trade cost for any N≥2 outcomes (outcome 0, Average strategy)
-     * @dev Generalisation of calculateTradeCost/calculateTradeCostTriple for arbitrary market sizes.
-     *      Use calculateTradeCostForOutcome when you need a specific outcome index or strategy.
+     * @dev Use calculateTradeCostForOutcome when you need a specific outcome index or strategy.
      * @param _q_initial Array of initial share quantities (length ≥ 2)
      * @param _q_final   Array of final share quantities (same length as _q_initial)
      * @return cost Price delta (final − initial) for outcome 0 as fixed-point 64.64 int128

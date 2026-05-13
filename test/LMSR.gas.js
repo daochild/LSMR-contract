@@ -284,12 +284,12 @@ describe("LMSR Gas Measurements", function () {
       expect(gas).to.be.greaterThan(0n);
     });
 
-    it("should measure gas for legacy calculatePriceTriple", async function () {
+    it("should measure gas for calculatePriceN (3 outcomes)", async function () {
       const qs = [1000n, 800n, 600n];
 
-      const gas = await measureGas("calculatePriceTriple(uint128[])", [qs]);
+      const gas = await measureGas("calculatePriceN(uint128[])", [qs]);
 
-      console.log(`  Legacy calculatePriceTriple: ${gas} gas`);
+      console.log(`  calculatePriceN (3 outcomes): ${gas} gas`);
       expect(gas).to.be.greaterThan(0n);
     });
 
@@ -319,13 +319,13 @@ describe("LMSR Gas Measurements", function () {
       expect(gas).to.be.greaterThan(0n);
     });
 
-    it("should measure gas for legacy calculateTradeCostTriple", async function () {
+    it("should measure gas for calculateTradeCostN (3 outcomes)", async function () {
       const initialQs = [1000n, 800n, 600n];
       const finalQs = [1100n, 700n, 700n];
 
-      const gas = await measureGas("calculateTradeCostTriple(uint128[],uint128[])", [initialQs, finalQs]);
+      const gas = await measureGas("calculateTradeCostN(uint128[],uint128[])", [initialQs, finalQs]);
 
-      console.log(`  Legacy calculateTradeCostTriple: ${gas} gas`);
+      console.log(`  calculateTradeCostN (3 outcomes): ${gas} gas`);
       expect(gas).to.be.greaterThan(0n);
     });
 

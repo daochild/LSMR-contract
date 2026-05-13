@@ -101,13 +101,13 @@ contract LMSRTest is Test {
     /**
      * @dev Test price with 3+ outcomes
      */
-    function test_calculatePriceTriple() public view {
+    function test_calculatePriceN_three_outcomes_equal() public view {
         uint128[] memory qs = new uint128[](3);
         qs[0] = Q_UNIT;
         qs[1] = Q_UNIT;
         qs[2] = Q_UNIT;
 
-        int128 price = lmsr.calculatePriceTriple(qs);
+        int128 price = lmsr.calculatePriceN(qs);
 
         assertTrue(price > 0, "Price for 3 outcomes should be positive");
         // For equal quantities: price ≈ 1/3
@@ -414,19 +414,6 @@ contract LMSRTest is Test {
         assertEq(priceLegacy, priceCanonical, "Legacy and canonical should match");
     }
 
-    /**
-     * @dev Test legacy triple wrapper consistency
-     */
-    function test_legacy_wrapper_triple() public view {
-        uint128[] memory qs = new uint128[](3);
-        qs[0] = Q_UNIT;
-        qs[1] = Q_UNIT;
-        qs[2] = Q_UNIT;
-
-        int128 price = lmsr.calculatePriceTriple(qs);
-
-        assertTrue(price > 0, "Triple wrapper should work");
-    }
 
     // ========== calculatePriceN / calculateTradeCostN TESTS ==========
 
@@ -444,20 +431,6 @@ contract LMSRTest is Test {
         assertEq(priceN, priceLegacy, "calculatePriceN with 2 outcomes must equal calculatePrice");
     }
 
-    /**
-     * @dev calculatePriceN with 3 outcomes should match calculatePriceTriple
-     */
-    function test_calculatePriceN_triple_matches_calculatePriceTriple() public view {
-        uint128[] memory qs = new uint128[](3);
-        qs[0] = Q_UNIT;
-        qs[1] = 2 * Q_UNIT;
-        qs[2] = 3 * Q_UNIT;
-
-        int128 priceN      = lmsr.calculatePriceN(qs);
-        int128 priceTriple = lmsr.calculatePriceTriple(qs);
-
-        assertEq(priceN, priceTriple, "calculatePriceN with 3 outcomes must equal calculatePriceTriple");
-    }
 
     /**
      * @dev calculatePriceN works for 4, 5, 6 outcomes
@@ -509,25 +482,6 @@ contract LMSRTest is Test {
         assertEq(costN, costLegacy, "calculateTradeCostN with 2 outcomes must equal calculateTradeCost");
     }
 
-    /**
-     * @dev calculateTradeCostN with 3 outcomes matches calculateTradeCostTriple
-     */
-    function test_calculateTradeCostN_triple_matches_triple() public view {
-        uint128[] memory qi = new uint128[](3);
-        qi[0] = Q_UNIT;
-        qi[1] = Q_UNIT;
-        qi[2] = Q_UNIT;
-
-        uint128[] memory qf = new uint128[](3);
-        qf[0] = 2 * Q_UNIT;
-        qf[1] = Q_UNIT;
-        qf[2] = Q_UNIT;
-
-        int128 costN      = lmsr.calculateTradeCostN(qi, qf);
-        int128 costTriple = lmsr.calculateTradeCostTriple(qi, qf);
-
-        assertEq(costN, costTriple, "calculateTradeCostN with 3 outcomes must equal calculateTradeCostTriple");
-    }
 
     /**
      * @dev calculateTradeCostN works for 4+ outcomes
